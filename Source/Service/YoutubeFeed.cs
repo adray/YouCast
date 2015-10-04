@@ -25,6 +25,8 @@ namespace Service
         private const string PlaylistUrlFormat = "http://www.youtube.com/playlist?list={0}";
 
         private readonly YouTubeService _youtubeService;
+        private readonly VideoConverter _converter;
+        private readonly YoutubeVideoDownloader _downloader;
 
         public YoutubeFeed()
         {
@@ -35,6 +37,8 @@ namespace Service
                         ApiKey = "AIzaSyD0E4ozDor6cgdyQKHvOgLCrrQMEX226Qc",
                         ApplicationName = "YouCast2",
                     });
+            _converter = new VideoConverter();
+            _downloader = new YoutubeVideoDownloader(_youtubeService);
         }
 
         public async Task<SyndicationFeedFormatter> GetUserFeedAsync(
@@ -170,6 +174,30 @@ namespace Service
             }
         }
 
+        public async Task<System.IO.Stream> GetMobileAudioAsync(string videoId)
+        {
+            var context = WebOperationContext.Current;
+            
+            var videos = await YouTube.Default.GetAllVideosAsync(
+                string.Format(VideoUrlFormat, videoId));
+            var audios = videos.
+                Where(_ => _.AudioFormat == AudioFormat.Aac && _.AdaptiveKind == AdaptiveKind.Audio).
+                ToList();
+            if (audios.Count == 0)
+            {
+                context.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
+                return System.IO.Stream.Null;
+            }
+
+            string source = string.Format(@"{0}.mp4", videoId);
+            string target = string.Format(@"{0}.3gp", videoId);
+            var video = audios.MaxBy(_ => _.AudioBitrate);
+            var stream = _converter.DownloadAndConvert(source, target, video, _downloader);
+            
+            context.OutgoingResponse.ContentType = "audio/3gp";
+            return stream;
+        }
+
         private async Task<IEnumerable<SyndicationItem>> GenerateItemsAsync(
             string baseAddress,
             DateTime startDate,
@@ -226,6 +254,16 @@ namespace Service
                         new XAttribute(
                             "url",
                             baseAddress + $"/{"Audio.m4a"}?videoId={playlistItem.Snippet.ResourceId.VideoId}")).CreateReader());
+            }
+            else if (arguments.Encoding == "Mobile")
+            {
+                item.ElementExtensions.Add(
+                   new XElement(
+                       "enclosure",
+                       new XAttribute("type", "audio/mp4"),
+                       new XAttribute(
+                           "url",
+                           baseAddress + $"/{"Mobile.3gp"}?videoId={playlistItem.Snippet.ResourceId.VideoId}")).CreateReader());
             }
             else
             {

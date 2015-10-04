@@ -37,5 +37,9 @@ namespace Service
         [OperationContract]
         [WebGet(UriTemplate = "Audio.m4a?videoId={videoId}")]
         Task GetAudioAsync(string videoId);
+
+        [OperationContract]
+        [WebGet(UriTemplate = "Mobile.3gp?videoId={videoId}")]
+        Task<System.IO.Stream> GetMobileAudioAsync(string videoId);
     }
 }

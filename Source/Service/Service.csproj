@@ -116,6 +116,7 @@
   <ItemGroup>
     <Compile Include="Arguments.cs" />
     <Compile Include="ItunesFeed.cs" />
+    <Compile Include="VideoConverter.cs" />
     <Compile Include="YoutubeFeed.cs" />
     <Compile Include="IYoutubeFeed.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
