@@ -54,6 +54,9 @@ namespace YouCast
             PortLabel.Text = port;
             _baseAddress = string.Format(_baseAddress, address, port);
 
+            YoutubeFeed.VideoConversionPath = Settings.Default.ConversionProgram;
+            ConversionProgram.Text = Settings.Default.ConversionProgram;
+
             Generate.Content = "Generate & Copy URL";
         }
 
@@ -174,7 +177,7 @@ namespace YouCast
         {
             var svcHost = new WebServiceHost(typeof (YoutubeFeed));
             svcHost.AddServiceEndpoint(typeof (IYoutubeFeed), new WebHttpBinding(), new Uri(_baseAddress));
-
+            
             try
             {
                 svcHost.Open();
@@ -306,6 +309,13 @@ namespace YouCast
             Settings.Default.StartupWindowState = StartMinimized.IsChecked.Value
                 ? WindowState.Minimized
                 : WindowState.Normal;
+            Settings.Default.Save();
+        }
+
+        private void ConversionProgram_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            YoutubeFeed.VideoConversionPath = ConversionProgram.Text;
+            Settings.Default.ConversionProgram = ConversionProgram.Text;
             Settings.Default.Save();
         }
 

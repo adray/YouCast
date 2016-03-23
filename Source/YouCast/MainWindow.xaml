@@ -107,6 +107,25 @@
                 </GroupBox>
             </StackPanel>
         </TabItem>
+        <TabItem Header="Converter">
+            <StackPanel Orientation="Vertical">
+                <GroupBox>
+                    <GroupBox.Header>
+                        <Label>Converter Details</Label>
+                    </GroupBox.Header>
+                    <StackPanel>
+                        <DockPanel>
+                            <Label DockPanel.Dock="Left">Conversion Program:</Label>
+                            <TextBox DockPanel.Dock="Right"
+                                     HorizontalContentAlignment="Right"
+                                     Name="ConversionProgram"
+                                     TextChanged="ConversionProgram_TextChanged"
+                                     />
+                        </DockPanel>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </TabItem>
         <TabItem Header="About">
             <StackPanel Orientation="Vertical">
                 <StackPanel Orientation="Horizontal">

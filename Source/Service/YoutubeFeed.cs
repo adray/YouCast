@@ -3,6 +3,7 @@ using Google.Apis.YouTube.v3.Data;
 using MoreLinq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.Caching;
@@ -27,6 +28,8 @@ namespace Service
         private readonly YouTubeService _youtubeService;
         private readonly VideoConverter _converter;
         private readonly YoutubeVideoDownloader _downloader;
+
+        public static string VideoConversionPath { get; set; }
 
         public YoutubeFeed()
         {
@@ -174,23 +177,22 @@ namespace Service
             }
         }
 
-        public async Task<System.IO.Stream> GetMobileAudioAsync(string videoId)
+        public async Task<Stream> GetMobileAudioAsync(string videoId)
         {
             var context = WebOperationContext.Current;
             
-            var videos = await YouTube.Default.GetAllVideosAsync(
-                string.Format(VideoUrlFormat, videoId));
+            var videos = await YouTube.Default.GetAllVideosAsync(string.Format(VideoUrlFormat, videoId));
             var audios = videos.
                 Where(_ => _.AudioFormat == AudioFormat.Aac && _.AdaptiveKind == AdaptiveKind.Audio).
                 ToList();
             if (audios.Count == 0)
             {
                 context.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
-                return System.IO.Stream.Null;
+                return Stream.Null;
             }
 
-            string source = string.Format(@"{0}.mp4", videoId);
-            string target = string.Format(@"{0}.3gp", videoId);
+            string source = $"{videoId}.mp4";
+            string target = $"{videoId}.3gp";
             var video = audios.MaxBy(_ => _.AudioBitrate);
             var stream = _converter.DownloadAndConvert(source, target, video, _downloader);
             

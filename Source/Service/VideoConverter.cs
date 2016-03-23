@@ -2,11 +2,9 @@
 using Google.Apis.YouTube.v3;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Service
@@ -16,7 +14,7 @@ namespace Service
         void Download(string url, string file);
     }
 
-    public class YoutubeVideoDownloader : IVideoDownloader
+    public sealed class YoutubeVideoDownloader : IVideoDownloader
     {
         private YouTubeService _youtubeService;
 
@@ -27,39 +25,38 @@ namespace Service
 
         public void Download(string url, string file)
         {
-            using (var writer = new StreamWriter(file))
+            try
             {
-                new MediaDownloader(_youtubeService).Download(url, writer.BaseStream);
+                using (var writer = new StreamWriter(file))
+                {
+                    new MediaDownloader(_youtubeService).Download(url, writer.BaseStream);
+                }
+            }
+            catch (IOException)
+            {
+                
             }
         }
     }
 
-    public class VideoConverter
+    public sealed class VideoConverter
     {
         private static Dictionary<string, VideoConversionJob> _downloads = new Dictionary<string, VideoConversionJob>();
         private static object _lock = new object();
 
         private class VideoConversionJob
         {
-            private Task task;
+            private Task _task;
 
             public VideoConversionJob(Task task)
             {
-                this.task = task;
+                _task = task;
+                _task.Start();
             }
 
-            public void Start()
-            {                
-                task.Start();
-                Await();
-            }
-
-            public void Await()
+            public void Join()
             {
-                if (!task.IsCompleted)
-                {
-                    task.Wait();
-                }
+                _task.Wait();
             }
         }
 
@@ -73,60 +70,49 @@ namespace Service
         
         public Stream DownloadAndConvert(string source, string target, VideoLibrary.Video video, IVideoDownloader downloader)
         {
-            source = string.Format(@"Downloads\{0}", source);
-            target = string.Format(@"Downloads\{0}", target);
+            source = $@"Downloads\{source}";
+            target = $@"Downloads\{target}";
             
-            bool download = false;
             VideoConversionJob job = null;
             lock (_lock)
             {
-                if (_downloads.TryGetValue(source, out job))
+                if (!_downloads.TryGetValue(source, out job))
                 {
-                    download = false;
-                }
-                else
-                {
-                    download = true;
                     job = new VideoConversionJob(new Task(() =>
                         {
-                            // Download
                             downloader.Download(video.Uri, source);
-
-                            // Convert
+                            
                             var args = string.Format("-y -i {0} -r 20 -s 352x288 -b 400k -acodec aac -strict experimental -ac 1 -ar 8000 -ab 24k {1}", source, target);
-                            var proc = new Process()
+                            try
                             {
-                                StartInfo = new ProcessStartInfo(@"C:\Users\Adam\Documents\ffmpeg\bin\ffmpeg.exe", args)
+                                var proc = new Process()
                                 {
-                                    CreateNoWindow = true,
-                                    RedirectStandardOutput = true,
-                                    RedirectStandardError = true,
-                                    UseShellExecute = false,
-                                },
-                            };
-                            string error = string.Empty;
-                            proc.ErrorDataReceived += (o, e) =>
+                                    StartInfo = new ProcessStartInfo(YoutubeFeed.VideoConversionPath, args)
+                                    {
+                                        CreateNoWindow = true,
+                                        RedirectStandardOutput = false,
+                                        RedirectStandardError = false,
+                                        UseShellExecute = false,
+                                    },
+                                };
+
+                                proc.Start();
+                                proc.WaitForExit();
+                            }
+                            catch (InvalidOperationException)
                             {
-                                error += e.Data;
-                                Console.WriteLine(e.Data);
-                            };
-                            proc.Start();
-                            proc.BeginErrorReadLine();
-                            proc.WaitForExit();
-                            Console.WriteLine("File converted.");
+
+                            }
+                            catch (Win32Exception)
+                            {
+
+                            }
                         }));
                     _downloads.Add(source, job);
                 }
             }
 
-            if (download)
-            {
-                job.Start();
-            }
-            else
-            {
-                job.Await();
-            }
+            job.Join();
 
             return new StreamReader(target).BaseStream;
         }
